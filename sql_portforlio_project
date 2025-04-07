@@ -1,0 +1,156 @@
+/*
+
+Cleaning Data in SQL Queries
+
+*/
+select *
+from NashvilleHousing
+
+-- standardize Data Format
+
+select SaleDateConverted , convert(Date,SaleDate)
+from NashvilleHousing
+ALTER TABLE NashvilleHousing
+Add SaleDateConverted Date;
+
+Update NashvilleHousing
+SET SaleDateConverted = CONVERT(Date,SaleDate)
+-- Populate Property Address data
+
+Select *
+From NashvilleHousing
+--Where PropertyAddress is null
+order by ParcelID
+
+Select n.ParcelID,n.PropertyAddress,v.ParcelID,v.PropertyAddress, isnull(n.PropertyAddress,v.PropertyAddress) 
+From NashvilleHousing n
+join NashvilleHousing v
+on n.ParcelID=v.ParcelID
+and n.[UniqueID ]<>v.[UniqueID ]
+where n.PropertyAddress is null
+
+update n
+set PropertyAddress=isnull(n.PropertyAddress,v.PropertyAddress) 
+from NashvilleHousing n
+join NashvilleHousing v
+on n.ParcelID=v.ParcelID
+and n.[UniqueID ]<>v.[UniqueID ]
+where n.PropertyAddress is null
+
+
+-- Breaking out Address into Individual Columns (Address, City, State)
+
+Select PropertyAddress
+From NashvilleHousing
+--Where PropertyAddress is null
+--order by ParcelID
+select 
+ SUBSTRING(PropertyAddress,1,CHARINDEX(',',PropertyAddress)-1) as Address,
+ SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress)) as Address
+From NashvilleHousing
+
+
+
+ALTER TABLE NashvilleHousing
+Add propertysplit nvarchar(255);
+
+Update NashvilleHousing
+SET propertysplit = SUBSTRING(PropertyAddress,1,CHARINDEX(',',PropertyAddress)-1)
+
+ALTER TABLE NashvilleHousing
+Add propertysplitcity nvarchar(255);
+
+Update NashvilleHousing
+SET propertysplitcity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress))
+
+
+Select *
+From NashvilleHousing
+
+
+Select OwnerAddress
+From NashvilleHousing
+
+select
+PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+,PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+From NashvilleHousing
+
+ALTER TABLE NashvilleHousing
+Add OwnerSplitAddress Nvarchar(255);
+
+Update NashvilleHousing
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
+
+
+ALTER TABLE NashvilleHousing
+Add OwnerSplitCity Nvarchar(255);
+
+Update NashvilleHousing
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
+
+
+
+ALTER TABLE NashvilleHousing
+Add OwnerSplitState Nvarchar(255);
+
+Update NashvilleHousing
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
+
+Select *
+From PortfolioProject.dbo.NashvilleHousing
+
+-- Change Y and N to Yes and No in "Sold as Vacant" field
+
+Select Distinct(SoldAsVacant), Count(SoldAsVacant)
+From PortfolioProject.dbo.NashvilleHousing
+Group by SoldAsVacant
+order by 2
+
+select SoldAsVacant
+,case
+      when SoldAsVacant='Y' then 'yes'
+	   when SoldAsVacant='N' then 'NO'
+   else
+       SoldAsVacant
+end
+From PortfolioProject.dbo.NashvilleHousing
+
+Update NashvilleHousing
+SET SoldAsVacant = CASE When SoldAsVacant = 'Y' THEN 'Yes'
+	   When SoldAsVacant = 'N' THEN 'No'
+	   ELSE SoldAsVacant
+	   END
+
+-- remove duplicates
+
+WITH RowNumCTE AS(
+select *,
+  ROW_NUMBER() over(
+  partition by ParcelID,
+				 PropertyAddress,
+				 SalePrice,
+				 SaleDate,
+				 LegalReference
+				 order by 
+				        UniqueID
+						) row_num
+
+From PortfolioProject.dbo.NashvilleHousing
+)
+select *
+From RowNumCTE
+Where row_num > 1
+Order by PropertyAddress
+
+Select *
+From PortfolioProject.dbo.NashvilleHousing
+
+-- Delete Unused Columns
+Select *
+From PortfolioProject.dbo.NashvilleHousing
+
+
+ALTER TABLE PortfolioProject.dbo.NashvilleHousing
+DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate
